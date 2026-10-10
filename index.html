@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ekip İzin Takvimi (demo)</title>
+<meta name="description" content="Google Apps Script ile yapılmış ekip izin takvimi uygulamasının kurgusal verili demosu.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --zemin: #F8F9FA;
+    --yuzey: #FFFFFF;
+    --murekkep: #202124;
+    --ikincil: #5F6368;
+    --cizgi: #DADCE0;
+    --mavi: #4285F4;
+    --mavi-koyu: #185ABC;
+    --mavi-acik: #D2E3FC;
+    --yesil-koyu: #137333;
+    --yesil-acik: #CEEAD6;
+    --sari: #FBBC04;
+    --sari-koyu: #EA8600;
+    --kirmizi: #EA4335;
+    --kirmizi-koyu: #B31412;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--zemin);
+    color: var(--murekkep);
+    font: 15px/1.5 "Google Sans Flex", "Google Sans", -apple-system, "Segoe UI", sans-serif;
+  }
+  .kap { max-width: 960px; margin: 0 auto; padding: 20px 16px 64px; }
+  header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  h1 { font-size: 22px; font-weight: 700; margin: 0; }
+  .kim { color: var(--ikincil); font-size: 14px; }
+  .rozet-yonetici { background: var(--mavi-acik); color: var(--mavi-koyu); border-radius: 12px; padding: 2px 10px; font-size: 12px; font-weight: 700; margin-left: 6px; }
+
+  nav { display: flex; gap: 4px; border-bottom: 1px solid var(--cizgi); margin-bottom: 20px; overflow-x: auto; }
+  nav button {
+    border: 0; background: none; padding: 10px 12px; font: inherit; color: var(--ikincil);
+    border-bottom: 3px solid transparent; margin-bottom: -1px; cursor: pointer; white-space: nowrap;
+  }
+  nav button[aria-selected="true"] { color: var(--mavi-koyu); border-bottom-color: var(--mavi); font-weight: 700; }
+  .sayac { background: var(--kirmizi-koyu); color: #fff; border-radius: 10px; padding: 0 7px; font-size: 12px; margin-left: 4px; }
+
+  section[hidden] { display: none; }
+  .panel { background: var(--yuzey); border: 1px solid var(--cizgi); border-radius: 12px; padding: 16px; }
+
+  .ay-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .ay-bar h2 { font-size: 18px; font-weight: 700; margin: 0; }
+  .ay-bar button { border: 1px solid var(--cizgi); background: var(--yuzey); border-radius: 20px; width: 40px; height: 40px; font-size: 18px; cursor: pointer; color: var(--murekkep); }
+
+  .izgara { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--cizgi); border: 1px solid var(--cizgi); border-radius: 12px; overflow: hidden; }
+  .gun-adi { background: var(--zemin); font-size: 12px; color: var(--ikincil); padding: 6px; text-align: center; }
+  .hucre { background: var(--yuzey); min-height: 84px; padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+  .hucre.bos { background: var(--zemin); }
+  .hucre.haftasonu { background: #F1F3F4; }
+  .hucre .no { font-size: 12px; color: var(--ikincil); line-height: 1.6; }
+  .hucre.bugun .no { color: #fff; background: var(--mavi-koyu); border-radius: 10px; width: 22px; text-align: center; font-weight: 700; }
+  .hucre.asim { box-shadow: inset 0 4px 0 var(--kirmizi); }
+  .izin { display: block; font-size: 12px; line-height: 1.5; padding: 0 6px; border-radius: 4px; background: var(--yesil-acik); color: var(--yesil-koyu); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .izin.bekliyor { background: transparent; color: var(--murekkep); border: 1px dashed var(--sari-koyu); }
+  .fazla { font-size: 11px; color: var(--ikincil); padding-left: 4px; }
+
+  .lejant { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--ikincil); margin: 10px 0 20px; }
+  .lejant span::before { content: ""; display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .lejant .l-onay::before { background: var(--yesil-acik); border: 1px solid var(--yesil-koyu); }
+  .lejant .l-bekle::before { border: 1px dashed var(--sari-koyu); }
+  .lejant .l-asim::before { background: var(--kirmizi); height: 4px; vertical-align: 3px; }
+
+  h3 { font-size: 15px; font-weight: 700; margin: 0 0 8px; }
+  .liste { list-style: none; margin: 0; padding: 0; }
+  .liste li { border-top: 1px solid var(--cizgi); padding: 12px 0; display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+  .liste li:first-child { border-top: 0; }
+  .baslik { font-weight: 700; }
+  .alt { color: var(--ikincil); font-size: 13px; }
+  .alt a { color: var(--mavi-koyu); font-weight: 500; }
+  .durum { font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 12px; white-space: nowrap; }
+  .d-Bekliyor { background: var(--sari); color: var(--murekkep); }
+  .d-Onaylandı { background: var(--yesil-acik); color: var(--yesil-koyu); }
+  .d-Reddedildi { background: var(--kirmizi-koyu); color: #fff; }
+  .d-İptal { background: #F1F3F4; color: var(--ikincil); }
+
+  form { display: grid; gap: 14px; max-width: 480px; }
+  label { display: grid; gap: 4px; font-size: 14px; font-weight: 500; }
+  input, select, textarea { font: inherit; padding: 9px 12px; border: 1px solid var(--cizgi); border-radius: 8px; background: var(--yuzey); color: var(--murekkep); }
+  textarea { resize: vertical; min-height: 64px; }
+  .iki { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .ozet { font-size: 14px; color: var(--mavi-koyu); background: var(--mavi-acik); border-radius: 8px; padding: 8px 12px; }
+  .btn { font: inherit; font-weight: 700; border-radius: 20px; padding: 9px 20px; cursor: pointer; border: 1px solid transparent; }
+  .btn-ana { background: var(--mavi-koyu); color: #fff; }
+  .btn-onay { background: var(--yesil-koyu); color: #fff; }
+  .btn-red { background: var(--yuzey); color: var(--kirmizi-koyu); border-color: var(--kirmizi-koyu); }
+  .btn-sade { background: var(--yuzey); color: var(--ikincil); border-color: var(--cizgi); padding: 5px 12px; font-size: 13px; }
+  .btn:disabled { opacity: .55; cursor: wait; }
+  .eylem { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; width: 100%; }
+  .eylem input { flex: 1 1 200px; }
+  .ipucu { width: 100%; font-size: 12px; color: var(--ikincil); }
+  .cakisma { color: var(--kirmizi-koyu); font-size: 13px; font-weight: 500; }
+  .bos-mesaj { color: var(--ikincil); }
+
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--mavi); outline-offset: 2px; }
+
+  #bildirim { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: calc(100% - 32px); background: var(--murekkep); color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 14px; display: none; }
+  #bildirim.hata { background: var(--kirmizi-koyu); }
+  #yukleniyor { color: var(--ikincil); padding: 40px 0; text-align: center; }
+
+  @media (max-width: 600px) {
+    .hucre { min-height: 56px; }
+    .izin { font-size: 10px; padding: 0 3px; }
+    .iki { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="kap">
+  <header>
+    <h1>Ekip İzin Takvimi</h1>
+    <div class="kim" id="kim"></div>
+  </header>
+
+  <div id="yukleniyor">Yükleniyor</div>
+
+  <div id="uygulama" hidden>
+    <nav role="tablist">
+      <button role="tab" data-sekme="takvim" aria-selected="true">Takvim</button>
+      <button role="tab" data-sekme="yeni" aria-selected="false">Yeni talep</button>
+      <button role="tab" data-sekme="taleplerim" aria-selected="false">Taleplerim</button>
+      <button role="tab" data-sekme="onay" aria-selected="false" id="onaySekme" hidden>Onay bekleyenler</button>
+    </nav>
+
+    <section id="takvim">
+      <div class="ay-bar">
+        <button type="button" id="onceki" aria-label="Önceki ay">‹</button>
+        <h2 id="ayBaslik"></h2>
+        <button type="button" id="sonraki" aria-label="Sonraki ay">›</button>
+      </div>
+      <div class="izgara" id="izgara"></div>
+      <div class="lejant">
+        <span class="l-onay">Onaylı izin</span>
+        <span class="l-bekle">Onay bekliyor</span>
+        <span class="l-asim">Günlük izin sınırı aşıldı</span>
+      </div>
+      <div class="panel">
+        <h3>Bu ay izinli olanlar</h3>
+        <ul class="liste" id="ayListe"></ul>
+      </div>
+    </section>
+
+    <section id="yeni" hidden>
+      <div class="panel">
+        <form id="talepForm">
+          <div class="iki">
+            <label>Başlangıç <input type="date" name="baslangic" required></label>
+            <label>Bitiş <input type="date" name="bitis" required></label>
+          </div>
+          <label>İzin türü <select name="tur" id="turSecim" required></select></label>
+          <label>Not (isteğe bağlı) <textarea name="not" maxlength="300" placeholder="Yöneticinin bilmesi gereken bir şey varsa yaz"></textarea></label>
+          <div class="ozet" id="gunOzet">Tarih seçince iş günü sayısı burada görünür.</div>
+          <div><button class="btn btn-ana" type="submit" id="gonderBtn">Talebi gönder</button></div>
+        </form>
+      </div>
+    </section>
+
+    <section id="taleplerim" hidden>
+      <div class="panel"><ul class="liste" id="taleplerimListe"></ul></div>
+    </section>
+
+    <section id="onay" hidden>
+      <div class="panel"><ul class="liste" id="onayListe"></ul></div>
+    </section>
+  </div>
+</div>
+
+<div id="bildirim" role="status" aria-live="polite"></div>
+
+<script>
+/* ====== EKRAN GÖRÜNTÜSÜ MODU: google.script.run yerine sahte veri ======
+   Bu dosya yalnızca demo görselleri içindir. Gerçek uygulamada bu blok yoktur. */
+(function () {
+  const ekip = {
+    'elif.kara': 'Elif Kara', 'mehmet.demir': 'Mehmet Demir', 'zeynep.aslan': 'Zeynep Aslan',
+    'deniz.tan': 'Deniz Tan', 'burak.kaya': 'Burak Kaya', 'selin.ak': 'Selin Ak',
+    'ozan.bal': 'Ozan Bal', 'ece.uzun': 'Ece Uzun'
+  };
+  const MEET = 'https://meet.google.com/abc-defg-hij';
+  let sira = 100;
+  const talepler = [
+    ['zeynep.aslan', '2026-10-05', '2026-10-09', 'Yıllık izin', 5, '', 'Onaylandı', '', ''],
+    ['burak.kaya', '2026-10-08', '2026-10-09', 'Mazeret izni', 2, '', 'Onaylandı', '', ''],
+    ['mehmet.demir', '2026-10-12', '2026-10-12', 'Mazeret izni', 1, '', 'Onaylandı', '', ''],
+    ['deniz.tan', '2026-10-19', '2026-10-23', 'Yıllık izin', 5, '', 'Onaylandı', '', MEET],
+    ['selin.ak', '2026-10-21', '2026-10-22', 'Yıllık izin', 2, '', 'Onaylandı', '', MEET],
+    ['elif.kara', '2026-07-13', '2026-07-17', 'Yıllık izin', 5, '', 'Reddedildi', 'Proje teslim haftası, ağustosa kaydıralım.', ''],
+    ['elif.kara', '2026-08-03', '2026-08-07', 'Yıllık izin', 5, '', 'Onaylandı', 'İyi tatiller.', ''],
+    ['elif.kara', '2026-10-16', '2026-10-16', 'Mazeret izni', 1, 'Taşınma', 'Onaylandı', '', MEET],
+    ['ozan.bal', '2026-10-22', '2026-10-23', 'Yıllık izin', 2, '', 'Bekliyor', '', ''],
+    ['ece.uzun', '2026-10-26', '2026-10-27', 'Yıllık izin', 2, '', 'Bekliyor', '', ''],
+    ['elif.kara', '2026-11-02', '2026-11-06', 'Yıllık izin', 5, 'Kardeşimin düğünü', 'Bekliyor', '', '']
+  ].map(r => ({ id: 't' + (sira++), k: r[0], ad: ekip[r[0]], baslangic: r[1], bitis: r[2], tur: r[3], gun: r[4], not: r[5], durum: r[6], yoneticiNotu: r[7], meetLink: r[8], olusturma: '' }));
+
+  window.MOCK_ROL = new URLSearchParams(location.search).get('rol') === 'calisan' ? 'calisan' : 'yonetici';
+  const kullanici = () => window.MOCK_ROL === 'yonetici' ? 'mehmet.demir' : 'elif.kara';
+
+  const sunucu = {
+    baslangicVerisi() {
+      const k = kullanici();
+      return {
+        email: k + '@ornek.com', ad: ekip[k], yonetici: window.MOCK_ROL === 'yonetici', limit: 2,
+        bugun: '2026-10-14', izinTurleri: ['Yıllık izin', 'Mazeret izni', 'Raporlu', 'Ücretsiz izin'],
+        taleplerim: talepler.filter(t => t.k === k).slice().reverse(),
+        bekleyenler: window.MOCK_ROL === 'yonetici' ? talepler.filter(t => t.durum === 'Bekliyor') : [],
+        takvim: talepler.filter(t => t.durum === 'Onaylandı' || t.durum === 'Bekliyor')
+          .map(t => ({ ad: t.ad, baslangic: t.baslangic, bitis: t.bitis, durum: t.durum }))
+      };
+    },
+    talepGonder(f) {
+      if (!f.baslangic || !f.bitis) throw new Error('Başlangıç ve bitiş tarihini seç.');
+      const k = kullanici();
+      talepler.push({ id: 't' + (sira++), k: k, ad: ekip[k], baslangic: f.baslangic, bitis: f.bitis, tur: f.tur, gun: 1, not: f.not, durum: 'Bekliyor', yoneticiNotu: '', meetLink: '' });
+      return { mesaj: 'Talebin yöneticine iletildi.', uyari: '' };
+    },
+    karar(id, onay, not) {
+      const t = talepler.find(x => x.id === id);
+      t.durum = onay ? 'Onaylandı' : 'Reddedildi'; t.yoneticiNotu = not || ''; t.meetLink = onay ? MEET : '';
+      return { mesaj: onay ? 'Talep onaylandı, takvime eklendi ve davet gönderildi. Devir görüşmesi kuruldu.' : 'Talep reddedildi.', uyari: '' };
+    },
+    iptal(id) {
+      talepler.find(x => x.id === id).durum = 'İptal edildi';
+      return { mesaj: 'Talep iptal edildi.' };
+    }
+  };
+
+  function kosucu(ok, hata) {
+    return new Proxy({}, {
+      get(_, ad) {
+        if (ad === 'withSuccessHandler') return fn => kosucu(fn, hata);
+        if (ad === 'withFailureHandler') return fn => kosucu(ok, fn);
+        return (...args) => setTimeout(() => {
+          try { const s = sunucu[ad](...args); ok && ok(s); } catch (e) { hata && hata(e); }
+        }, 250);
+      }
+    });
+  }
+  window.google = { script: { get run() { return kosucu(null, null); } } };
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const bar = document.createElement('div');
+    bar.id = 'mockBar';
+    bar.innerHTML = '<span>Demo, rolünü seç:</span>' +
+      '<button data-rol="calisan">Çalışan</button><button data-rol="yonetici">Yönetici</button>' +
+      '<button data-gizle>Gizle</button>';
+    document.body.appendChild(bar);
+    bar.addEventListener('click', async e => {
+      if (e.target.dataset.gizle !== undefined) { bar.remove(); return; }
+      const rol = e.target.dataset.rol;
+      if (!rol) return;
+      window.MOCK_ROL = rol;
+      await yenile();
+      sekmeAc('takvim');
+      bar.querySelectorAll('[data-rol]').forEach(b => b.classList.toggle('secili', b.dataset.rol === rol));
+    });
+    bar.querySelector('[data-rol="' + window.MOCK_ROL + '"]').classList.add('secili');
+  });
+})();
+</script>
+<style>
+  #mockBar { position: fixed; right: 12px; bottom: 12px; display: flex; gap: 6px; align-items: center; background: #202124; color: #fff; padding: 6px 8px; border-radius: 10px; font-size: 12px; z-index: 10; }
+  #mockBar button { font: inherit; border: 1px solid #5F6368; background: transparent; color: #fff; border-radius: 14px; padding: 4px 10px; cursor: pointer; }
+  #mockBar button.secili { background: #185ABC; border-color: #185ABC; }
+</style>
+<script>
+  let V = null;
+  let ay = new Date(2026, 9, 1);
+  const $ = s => document.querySelector(s);
+  const pad = n => String(n).padStart(2, '0');
+  const tarih = s => { const p = s.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); };
+  const goster = s => tarih(s).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' });
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const BOS_OZET = 'Tarih seçince iş günü sayısı burada görünür.';
+
+  function cagir(fn, ...args) {
+    return new Promise((ok, hata) => {
+      google.script.run.withSuccessHandler(ok).withFailureHandler(hata)[fn](...args);
+    });
+  }
+
+  let bildirimZaman;
+  function bildir(metin, hata) {
+    const b = $('#bildirim');
+    b.textContent = metin;
+    b.className = hata ? 'hata' : '';
+    b.style.display = 'block';
+    clearTimeout(bildirimZaman);
+    bildirimZaman = setTimeout(() => { b.style.display = 'none'; }, hata ? 7000 : 6000);
+  }
+
+  async function yukle() {
+    try {
+      V = await cagir('baslangicVerisi');
+      $('#yukleniyor').hidden = true;
+      $('#uygulama').hidden = false;
+      ciz();
+    } catch (e) {
+      $('#yukleniyor').textContent = e.message;
+    }
+  }
+
+  async function yenile() {
+    V = await cagir('baslangicVerisi');
+    ciz();
+  }
+
+  function ciz() {
+    $('#kim').innerHTML = esc(V.ad) + (V.yonetici ? '<span class="rozet-yonetici">Yönetici</span>' : '');
+    $('#turSecim').innerHTML = V.izinTurleri.map(t => '<option>' + esc(t) + '</option>').join('');
+    const sekme = $('#onaySekme');
+    sekme.hidden = !V.yonetici;
+    sekme.innerHTML = 'Onay bekleyenler' + (V.bekleyenler.length ? '<span class="sayac">' + V.bekleyenler.length + '</span>' : '');
+    takvimCiz();
+    taleplerimCiz();
+    if (V.yonetici) onayCiz();
+  }
+
+  function sekmeAc(ad) {
+    document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-selected', b.dataset.sekme === ad));
+    document.querySelectorAll('section').forEach(s => { s.hidden = s.id !== ad; });
+  }
+  document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => sekmeAc(b.dataset.sekme)));
+
+  /* Takvim */
+  function takvimCiz() {
+    const y = ay.getFullYear(), m = ay.getMonth();
+    $('#ayBaslik').textContent = ay.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
+    const gunSayisi = new Date(y, m + 1, 0).getDate();
+    const bosluk = (new Date(y, m, 1).getDay() + 6) % 7;
+    let h = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'].map(g => '<div class="gun-adi">' + g + '</div>').join('');
+    for (let i = 0; i < bosluk; i++) h += '<div class="hucre bos"></div>';
+    for (let d = 1; d <= gunSayisi; d++) {
+      const s = y + '-' + pad(m + 1) + '-' + pad(d);
+      const hg = new Date(y, m, d).getDay();
+      const haftasonu = hg === 0 || hg === 6;
+      const kim = haftasonu ? [] : V.takvim.filter(t => t.baslangic <= s && s <= t.bitis);
+      const asim = kim.length > V.limit;
+      let cipler = kim.slice(0, 3).map(t =>
+        '<span class="izin' + (t.durum === 'Bekliyor' ? ' bekliyor' : '') + '" title="' + esc(t.ad + ' (' + t.durum + ')') + '">' + esc(t.ad.split(' ')[0]) + '</span>'
+      ).join('');
+      if (kim.length > 3) cipler += '<span class="fazla">+' + (kim.length - 3) + '</span>';
+      h += '<div class="hucre' + (haftasonu ? ' haftasonu' : '') + (s === V.bugun ? ' bugun' : '') + (asim ? ' asim' : '') + '"' +
+        (asim ? ' title="Bu gün izinli kişi sayısı sınırı aşıyor"' : '') + '><span class="no">' + d + '</span>' + cipler + '</div>';
+    }
+    $('#izgara').innerHTML = h;
+
+    const ayBas = y + '-' + pad(m + 1) + '-01';
+    const aySon = y + '-' + pad(m + 1) + '-' + pad(gunSayisi);
+    const liste = V.takvim.filter(t => t.baslangic <= aySon && ayBas <= t.bitis)
+      .sort((a, b) => a.baslangic.localeCompare(b.baslangic));
+    $('#ayListe').innerHTML = liste.length ? liste.map(t =>
+      '<li><div><div class="baslik">' + esc(t.ad) + '</div><div class="alt">' + goster(t.baslangic) + ' ile ' + goster(t.bitis) + ' arası</div></div>' +
+      '<span class="durum d-' + esc(t.durum) + '">' + esc(t.durum) + '</span></li>'
+    ).join('') : '<li class="bos-mesaj">Bu ay kayıtlı izin yok.</li>';
+  }
+  $('#onceki').addEventListener('click', () => { ay.setMonth(ay.getMonth() - 1); takvimCiz(); });
+  $('#sonraki').addEventListener('click', () => { ay.setMonth(ay.getMonth() + 1); takvimCiz(); });
+
+  /* Yeni talep */
+  function isGunu(bas, bit) {
+    let n = 0;
+    for (let d = tarih(bas); d <= tarih(bit); d.setDate(d.getDate() + 1)) {
+      const g = d.getDay();
+      if (g !== 0 && g !== 6) n++;
+    }
+    return n;
+  }
+  const form = $('#talepForm');
+  form.addEventListener('input', () => {
+    if (form.baslangic.value && !form.bitis.value) form.bitis.value = form.baslangic.value;
+    form.bitis.min = form.baslangic.value;
+    const b = form.baslangic.value, s = form.bitis.value;
+    $('#gunOzet').textContent = b && s
+      ? (s < b ? 'Bitiş tarihi başlangıçtan önce olamaz.' : isGunu(b, s) + ' iş günü (hafta sonları sayılmaz, resmi tatiller sayılır).')
+      : BOS_OZET;
+  });
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = $('#gonderBtn');
+    btn.disabled = true; btn.textContent = 'Gönderiliyor';
+    try {
+      const sonuc = await cagir('talepGonder', {
+        baslangic: form.baslangic.value, bitis: form.bitis.value, tur: form.tur.value, not: form.not.value
+      });
+      bildir(sonuc.mesaj + (sonuc.uyari ? ' ' + sonuc.uyari : ''));
+      form.reset();
+      $('#gunOzet').textContent = BOS_OZET;
+      await yenile();
+      sekmeAc('taleplerim');
+    } catch (err) {
+      bildir(err.message, true);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Talebi gönder';
+    }
+  });
+
+  /* Taleplerim */
+  function taleplerimCiz() {
+    const iptalEdilebilir = t => t.durum === 'Bekliyor' || (t.durum === 'Onaylandı' && t.baslangic > V.bugun);
+    $('#taleplerimListe').innerHTML = V.taleplerim.length ? V.taleplerim.map(t =>
+      '<li><div><div class="baslik">' + goster(t.baslangic) + ' ile ' + goster(t.bitis) + ' arası</div>' +
+      '<div class="alt">' + esc(t.tur) + ', ' + t.gun + ' iş günü' + (t.not ? '. Not: ' + esc(t.not) : '') + '</div>' +
+      (t.yoneticiNotu ? '<div class="alt">Yönetici notu: ' + esc(t.yoneticiNotu) + '</div>' : '') +
+      (t.meetLink && t.durum === 'Onaylandı' && t.baslangic > V.bugun
+        ? '<div class="alt"><a href="' + esc(t.meetLink) + '" target="_blank" rel="noopener">Devir görüşmesine katıl (Google Meet)</a></div>' : '') +
+      '</div>' +
+      '<div class="eylem" style="width:auto"><span class="durum d-' + esc(t.durum.split(' ')[0]) + '">' + esc(t.durum) + '</span>' +
+      (iptalEdilebilir(t) ? '<button class="btn btn-sade" data-iptal="' + esc(t.id) + '">İptal et</button>' : '') + '</div></li>'
+    ).join('') : '<li class="bos-mesaj">Henüz talebin yok. Yeni talep sekmesinden oluşturabilirsin.</li>';
+  }
+  $('#taleplerimListe').addEventListener('click', async e => {
+    const id = e.target.dataset.iptal;
+    if (!id || !confirm('Bu talebi iptal etmek istiyor musun?')) return;
+    e.target.disabled = true;
+    try {
+      const sonuc = await cagir('iptal', id);
+      bildir(sonuc.mesaj);
+      await yenile();
+    } catch (err) {
+      bildir(err.message, true);
+      e.target.disabled = false;
+    }
+  });
+
+  /* Onay bekleyenler */
+  function onayCiz() {
+    $('#onayListe').innerHTML = V.bekleyenler.length ? V.bekleyenler.map(t => {
+      const digerleri = V.takvim.filter(x => x.durum === 'Onaylandı' && x.ad !== t.ad && x.baslangic <= t.bitis && t.baslangic <= x.bitis);
+      return '<li><div><div class="baslik">' + esc(t.ad) + '</div>' +
+        '<div class="alt">' + goster(t.baslangic) + ' ile ' + goster(t.bitis) + ' arası, ' + esc(t.tur) + ', ' + t.gun + ' iş günü</div>' +
+        (t.not ? '<div class="alt">Not: ' + esc(t.not) + '</div>' : '') +
+        (digerleri.length ? '<div class="cakisma">Bu tarihlerde izinli: ' + digerleri.map(x => esc(x.ad)).join(', ') + '</div>' : '') + '</div>' +
+        '<div class="eylem"><input type="text" maxlength="300" placeholder="Not (isteğe bağlı)" aria-label="Yönetici notu" data-not="' + esc(t.id) + '">' +
+        '<button class="btn btn-onay" data-karar="1" data-id="' + esc(t.id) + '">Onayla</button>' +
+        '<button class="btn btn-red" data-karar="0" data-id="' + esc(t.id) + '">Reddet</button>' +
+        '<div class="ipucu">Onaylarsan: ekip takvimine eklenir, çalışana davet gider, izinden önceki iş günü Meet linkli devir görüşmesi kurulur.</div></div></li>';
+    }).join('') : '<li class="bos-mesaj">Onay bekleyen talep yok.</li>';
+  }
+  $('#onayListe').addEventListener('click', async e => {
+    const id = e.target.dataset.id;
+    if (!id) return;
+    const onay = e.target.dataset.karar === '1';
+    const not = document.querySelector('[data-not="' + id + '"]').value;
+    const butonlar = e.target.closest('.eylem').querySelectorAll('button');
+    butonlar.forEach(b => { b.disabled = true; });
+    try {
+      const sonuc = await cagir('karar', id, onay, not);
+      bildir(sonuc.mesaj + (sonuc.uyari ? ' ' + sonuc.uyari : ''));
+      await yenile();
+    } catch (err) {
+      bildir(err.message, true);
+      butonlar.forEach(b => { b.disabled = false; });
+    }
+  });
+
+  yukle();
+</script>
+</body>
+</html>
